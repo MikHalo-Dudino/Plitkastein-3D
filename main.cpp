@@ -5,7 +5,7 @@ using namespace sf;
 #define WIN_WEIGHT 1280 + 400
 #define WIN_EIGHT 720
 #define WALL_SIZE 20
-#define P_SIZE 15
+#define P_SIZE 10
 #define pi 3.1415
 #define WALL_COLOR Color::Magenta
 
@@ -98,22 +98,26 @@ public:
 			if (map[round(y / WALL_SIZE)][round(x / WALL_SIZE)] != ' ') break;
 			
 		} 
-		Vertex ray[] = {Vector2f(coord.first , coord.second), Vector2f(x, y)};
-		window.draw(ray, 2, Lines);
+		//Vertex ray[] = {Vector2f(coord.first , coord.second), Vector2f(x, y)};
+		//window.draw(ray, 2, Lines);
 		return pow(pow((x - coord.first), 2) + pow((y - coord.second), 2), 0.5);
 	}
 
 	RectangleShape distToWall(int dist, int index)
 	{
-		float height = 0;
-		if (dist < 10) height = WIN_EIGHT;
+		float height;
+		int alpha;
+		if (dist < 15) 
+		{
+			height = WIN_EIGHT;
+		
+		}
 		else
 		{
 			height = 100 * WIN_EIGHT / dist;
 		}
 		RectangleShape object(Vector2f(1, height));
 		object.setFillColor(Color(255, 255, 255, height/8));
-		//object.setOrigin(0, WIN_EIGHT / 2);
 		object.setPosition(index, WIN_EIGHT / 2 - height / 2);
 		return object;
 	}
@@ -155,23 +159,30 @@ void drawMap(RenderWindow& win, maptype map)
 
 void key_pressed(sf::Event& event, Player &player) {
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-		player.move(Forward, 10);
+		player.move(Forward, 5);
 	}
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-		player.move(Left, 10);
+		player.move(Left, 5);
 	}
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-		player.move(Back, 10);
+		player.move(Back, 5);
 	}
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-		player.move(Right, 10);
+		player.move(Right, 5);
 	}
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-		player.rotate(-0.1);
+		player.rotate(-0.05);
 	}
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-		player.rotate(0.1);
+		player.rotate(0.05);
 	}
+}
+
+void mouse_move(sf::Event& event, Player& player, float& mouse_x)
+{
+	float dx = event.mouseMove.x - mouse_x;
+	player.rotate(dx / (500 * pi));
+	
 }
 
 
@@ -180,25 +191,25 @@ int main()
 	std::vector<std::string> map;
 	map.push_back("11111111111111111111");
 	map.push_back("1            1     1");
+	map.push_back("11           1     1");
 	map.push_back("1            1     1");
 	map.push_back("1            1     1");
 	map.push_back("1            1     1");
 	map.push_back("1            1     1");
-	map.push_back("1            1     1");
-	map.push_back("11   111111111111111");
+	map.push_back("11   1111111111  11");
 	map.push_back("1    1             1");
 	map.push_back("1    1             1");
-	map.push_back("1                  1");
+	map.push_back("1             1    1");
 	map.push_back("1                  1");
 	map.push_back("1                  1");
 	map.push_back("1       111        1");
 	map.push_back("1                  1");
 	map.push_back("1                  1");
-	map.push_back("1                  1");
+	map.push_back("1        11111     1");
 	map.push_back("1                  1");
 	map.push_back("11111111111111111111");
 	
-	RenderWindow window(VideoMode(400, 400), "Zalupstien");
+	RenderWindow window(VideoMode(400, 400), "minimap");
 	RenderWindow window_game(VideoMode( 1280, 720), "game");
 	Player player(100, 60, 1);
 
@@ -209,6 +220,7 @@ int main()
 		window.display();
 		window_game.display();
 		sf::Event event;
+		
 		while (window_game.pollEvent(event)) {
 			switch (event.type) {
 			case sf::Event::Closed: // закрытие окна
