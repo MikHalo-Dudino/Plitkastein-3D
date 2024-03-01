@@ -9,6 +9,11 @@ using namespace sf;
 #define pi 3.1415
 #define WALL_COLOR Color::Magenta
 
+enum Direction
+{
+	Forward, Left, Back, Right
+};
+
 typedef std::vector<std::string> maptype;
 class Player
 {
@@ -21,6 +26,7 @@ public:
 		coord = {x, y};
 		angle = 0;
 	}
+
 	Player(float x, float y, float new_angle) : Player(x, y)
 	{
 		angle = new_angle;
@@ -30,10 +36,47 @@ public:
 	{
 		coord = new_coord;
 	}
+
+	void move(Direction direction, int distance)
+	{
+		/*float distance = 5;*/
+		float dx, dy;
+
+		switch (direction)
+		{
+		case Direction::Forward:
+			dx = distance * cos(angle);
+			dy = distance * sin(angle);
+			break;
+		case Direction::Left:
+			dx = distance * sin(angle);
+			dy = -distance* cos(angle);
+			break;
+		case Direction::Right:
+			dx = -distance * sin(angle);
+			dy = distance * cos(angle);
+			break;
+		case Direction::Back:
+			dx = -distance * cos(angle);
+			dy = -distance * sin(angle);
+			break;
+		default:
+			break;
+		}
+		coord.first += dx;
+		coord.second += dy;
+	}
+
 	void setAngle(float new_angle)
 	{
 		angle = new_angle;
 	}
+
+	void rotate(float d_angle)
+	{
+		angle += d_angle;
+	}
+
 	void draw(RenderWindow& window)
 	{
 		CircleShape playerShape(P_SIZE);
@@ -42,12 +85,13 @@ public:
 		playerShape.setPosition(Vector2f(coord.first, coord.second));
 		window.draw(playerShape);
 	}
+
 	float drawRay(RenderWindow& window, maptype map, float angle)
 	{
 		float c = 0;
 		float x;
 		float y;
-		for (; c < 500; c += 0.1) 
+		for (; c < 500; c += 0.5) 
 		{
 			x = coord.first + c * cos(angle);
 			y = coord.second + c * sin(angle);
@@ -58,19 +102,22 @@ public:
 		window.draw(ray, 2, Lines);
 		return pow(pow((x - coord.first), 2) + pow((y - coord.second), 2), 0.5);
 	}
-	RectangleShape distToWallProcessor(int dist, int index)
+
+	RectangleShape distToWall(int dist, int index)
 	{
 		float height = 0;
-		if (dist < 1) height = WIN_EIGHT;
+		if (dist < 10) height = WIN_EIGHT;
 		else
 		{
-			height = WIN_EIGHT / dist;
+			height = 100 * WIN_EIGHT / dist;
 		}
-		RectangleShape object(Vector2f(1.0, height));
-		object.setOrigin(0, WIN_EIGHT / 2);
-		object.setPosition(index, -height / 2);
+		RectangleShape object(Vector2f(1, height));
+		object.setFillColor(Color(255, 255, 255, height/8));
+		//object.setOrigin(0, WIN_EIGHT / 2);
+		object.setPosition(index, WIN_EIGHT / 2 - height / 2);
 		return object;
 	}
+
 	void drawFov(RenderWindow &window, RenderWindow& window_game, maptype map)
 	{
 		int n = 1280;
@@ -78,10 +125,9 @@ public:
 		for (float i = -pi/4; i < pi/4; i += pi/(2 * n))
 		{
 			float dist = drawRay(window, map, angle + i);
-			RectangleShape line = distToWallProcessor(dist, index);
+			RectangleShape line = distToWall(dist, index);
 			window_game.draw(line);
 			index++;
-			window_game.display();
 		}
 
 	}
@@ -105,6 +151,30 @@ void drawMap(RenderWindow& win, maptype map)
 
 }
 
+
+
+void key_pressed(sf::Event& event, Player &player) {
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+		player.move(Forward, 10);
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+		player.move(Left, 10);
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+		player.move(Back, 10);
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+		player.move(Right, 10);
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+		player.rotate(-0.1);
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+		player.rotate(0.1);
+	}
+}
+
+
 int main()
 {
 	std::vector<std::string> map;
@@ -121,25 +191,42 @@ int main()
 	map.push_back("1                  1");
 	map.push_back("1                  1");
 	map.push_back("1                  1");
-	map.push_back("1                  1");
+	map.push_back("1       111        1");
 	map.push_back("1                  1");
 	map.push_back("1                  1");
 	map.push_back("1                  1");
 	map.push_back("1                  1");
 	map.push_back("11111111111111111111");
 	
-	RenderWindow win(VideoMode(400, 400), "Zalupstien");
-	RenderWindow win_game(VideoMode( 1280, 720), "game");
-	Player player(100, 60, 1.5);
-	while (win.isOpen()) 
-	{
-		drawMap(win, map);
-		player.draw(win);
-		player.drawFov(win, win_game, map);
-		win.display();
-		win_game.display();
-		system("pause");
-		
+	RenderWindow window(VideoMode(400, 400), "Zalupstien");
+	RenderWindow window_game(VideoMode( 1280, 720), "game");
+	Player player(100, 60, 1);
 
+	while (window_game.isOpen()) {
+		drawMap(window, map);
+		player.draw(window);
+		player.drawFov(window, window_game, map);
+		window.display();
+		window_game.display();
+		sf::Event event;
+		while (window_game.pollEvent(event)) {
+			switch (event.type) {
+			case sf::Event::Closed: // закрытие окна
+				window_game.close();
+				break;
+
+			case sf::Event::KeyPressed: // нажата клавиша клавиатуры
+				key_pressed(event, player);
+				break;
+
+			case sf::Event::MouseButtonPressed: // нажата кнопка мыши
+				break;
+
+			default:
+				break;
+			}
+		}
+		window_game.clear();
+		window.clear();
 	}
 }
