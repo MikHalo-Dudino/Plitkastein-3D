@@ -20,6 +20,8 @@ const int MAX_DIST = (MAP_SIZE) * 1.41;
 #define ROTATE_ANGLE 0.05
 #define CEILLING_COLOR sf::Color(128, 128, 128, 200)
 #define FLOOR_COLOR sf::Color(128, 128, 128, 200)
+#define MOUSE_SENSIVITY 3
+#define MOUSE_DEAD_ZONE 50
 //player settings
 #define MAX_PLAYER_HP 100;
 //other
@@ -78,13 +80,13 @@ protected:
 	std::pair<float, float> coord;
 	float angle;
 public:
-	Movable(float x, float y, float new_angle) 
+	Movable(float x, float y, float new_angle)
 	{
 		coord = { x, y };
 		angle = new_angle;
 	}
 	std::pair<float, float> getCoord()
-	{													
+	{
 		return coord;
 	}
 	void setCoord(float x, float y)
@@ -119,12 +121,29 @@ public:
 		coord.second += dy;
 	}
 
-	void rotate(float d_angle)
+	void rotate(float d_angle, float time)
 	{
-		angle += d_angle;
+		angle += d_angle * time;
 	}
-
-	void key_pressed(sf::Event& event) {
+	void mouseMoved(sf::RenderWindow& window, sf::Event& event, float time)
+	{
+		sf::Vector2i v2i = (sf::Vector2i(WIN_HEIGHT, WIN_HEIGHT));
+		//sf::Vector2f mouse_in_win = window.mapCoordsToPixel(sf::Vector2f(sf::Mouse::getPosition(window)));
+		/*sf::Vector2f mouse_world = window->mapPixelToCoords(sf::Mouse::getPosition(window));*/ // Eta yburda return coord otnosytilno window
+		sf::Mouse::setPosition(v2i);
+		if (sf::Event::MouseMoved)
+		{
+			if ((event.mouseMove.x < sf::Mouse::getPosition(window).x) && (abs(event.mouseMove.x - sf::Mouse::getPosition(window).x) > MOUSE_DEAD_ZONE)) // second expression used to
+			{																														// there isnt accidental rotating when
+				rotate(-ROTATE_ANGLE * MOUSE_SENSIVITY, time);			//something needs to be done with second expression mb				// mouse goes on y axis
+			}
+			if ((event.mouseMove.x > sf::Mouse::getPosition(window).x) && (abs(event.mouseMove.x - sf::Mouse::getPosition(window).x) > MOUSE_DEAD_ZONE))
+			{
+				rotate(ROTATE_ANGLE * MOUSE_SENSIVITY, time);
+			}
+		}
+	}
+	void key_pressed(sf::RenderWindow& window, sf::Event& event, bool& mouse_flag, float time) {
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
 			move(Forward, MOVE_DIST);
 		}
@@ -138,15 +157,28 @@ public:
 			move(Right, MOVE_DIST);
 		}
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-			rotate(-ROTATE_ANGLE);
+			rotate(-ROTATE_ANGLE, time);
 		}
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-			rotate(ROTATE_ANGLE);
+			rotate(ROTATE_ANGLE, time);
+		}
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
+			if (mouse_flag)
+			{
+				window.setMouseCursorGrabbed(false);
+				window.setMouseCursorVisible(true);
+			}
+			else
+			{
+				window.setMouseCursorGrabbed(true);
+				window.setMouseCursorVisible(false);
+			}
+			mouse_flag = !mouse_flag;
 		}
 	}
 };
 
-class Player : private Movable 
+class Player : private Movable
 {
 private:
 	int health_point;
@@ -262,31 +294,41 @@ public:
 
 int main()
 {
+	sf::Clock clock; // IMPORTANT
 	maptype map = loadMap("map.txt");
 	sf::RenderWindow window_map(sf::VideoMode(MAP_SIZE, MAP_SIZE), "minimap");
 	sf::RenderWindow window_game(sf::VideoMode(WIN_WIDTH, WIN_HEIGHT), "game");
 	Camera camera(300, 300, pi);
-
+	window_game.setMouseCursorGrabbed(true);
+	window_game.setMouseCursorVisible(false);
+	bool mouse_flag = true;
 	while (window_game.isOpen()) {
+
+		float time = clock.getElapsedTime().asMicroseconds();
+		clock.restart();
+		time = time / 60000;
+
 		camera.drawFov(window_game, map);
 		window_game.display();
-
 		camera.drawMapPlayer(window_map);
 		drawMap(window_map, map);
 		window_map.display();
-		
+
 		sf::Event event;
 
 		while (window_game.pollEvent(event)) {
+
 			switch (event.type) {
 			case sf::Event::Closed:
 				window_game.close();
 				break;
 
-			case sf::Event::KeyPressed: 
-				camera.key_pressed(event);
+			case sf::Event::KeyPressed:
+				camera.key_pressed(window_game, event, mouse_flag, time);
 				break;
-
+			case sf::Event::MouseMoved:
+				if (mouse_flag) camera.mouseMoved(window_game, event, time);
+				break;
 			default:
 				break;
 			}
