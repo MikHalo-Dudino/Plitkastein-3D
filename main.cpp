@@ -12,7 +12,8 @@
 #define WIN_HEIGHT 720
 #define MIN_WALL_HEIGHT 100
 #define MAP_SIZE 400
-const int MAX_DIST = (MAP_SIZE) * 1.41;
+#define MAX_DIST 500
+#define MIN_DIST 9
 //camera settings
 #define RAY_STEP 0.3
 #define FOV_RANGE pi/2
@@ -51,7 +52,7 @@ void drawMap(sf::RenderWindow& win, maptype map)
 	for (int i = 0; i < map.size(); i++)
 		for (int j = 0; j < map[0].size(); j++)
 		{
-			if (map[i][j] == '1')
+			if (map[i][j] != ' ')
 			{
 				wall.setPosition(sf::Vector2f(j * WALL_SIZE, i * WALL_SIZE));
 				win.draw(wall);
@@ -93,7 +94,18 @@ public:
 	{
 		coord = { x, y };
 	}
-	void move(Direction direction, int distance)
+	float getDist(maptype map, float angle)
+	{
+		float c = 0;
+		float x, y;		//end of ray coords
+		for (; c < MAX_DIST; c += RAY_STEP) {
+			x = coord.first + c * cos(angle);
+			y = coord.second + c * sin(angle);
+			if (map[round(y / WALL_SIZE)][round(x / WALL_SIZE)] != ' ') break;
+		}
+		return pow(pow((x - coord.first), 2) + pow((y - coord.second), 2), 0.5);
+	}
+	void move(Direction direction, int distance, maptype map)
 	{
 		float dx, dy;
 		switch (direction)
@@ -119,6 +131,20 @@ public:
 		}
 		coord.first += dx;
 		coord.second += dy;
+
+		int n = 16;
+		int index = 0;
+		for (float i = -pi; i < pi; i += 2*pi / n)
+		{
+			float dist = getDist(map, angle + i);
+			if (dist < MIN_DIST)
+			{
+				coord.first -= dx;
+				coord.second -= dy;
+				break;
+			}
+			index++;
+		}
 	}
 
 	void rotate(float d_angle, float time)
@@ -128,8 +154,6 @@ public:
 	void mouseMoved(sf::RenderWindow& window, sf::Event& event, float time)
 	{
 		sf::Vector2i v2i = (sf::Vector2i(WIN_HEIGHT, WIN_HEIGHT));
-		//sf::Vector2f mouse_in_win = window.mapCoordsToPixel(sf::Vector2f(sf::Mouse::getPosition(window)));
-		/*sf::Vector2f mouse_world = window->mapPixelToCoords(sf::Mouse::getPosition(window));*/ // Eta yburda return coord otnosytilno window
 		sf::Mouse::setPosition(v2i);
 		if (sf::Event::MouseMoved)
 		{
@@ -143,18 +167,18 @@ public:
 			}
 		}
 	}
-	void key_pressed(sf::RenderWindow& window, sf::Event& event, bool& mouse_flag, float time) {
+	void key_pressed(sf::RenderWindow& window, maptype map, sf::Event& event, bool& mouse_flag, float time) {
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-			move(Forward, MOVE_DIST);
+			move(Forward, MOVE_DIST, map);
 		}
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-			move(Left, MOVE_DIST);
+			move(Left, MOVE_DIST, map);
 		}
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-			move(Back, MOVE_DIST);
+			move(Back, MOVE_DIST, map);
 		}
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-			move(Right, MOVE_DIST);
+			move(Right, MOVE_DIST, map);
 		}
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
 			rotate(-ROTATE_ANGLE, time);
@@ -214,31 +238,21 @@ public:
 		window.draw(playerShape);
 	}
 
-	float getDist(maptype map, float angle)
-	{
-		float c = 0;
-		float x, y;		//end of ray coords
-		for (; c < MAP_SIZE; c += RAY_STEP) {
-			x = coord.first + c * cos(angle);
-			y = coord.second + c * sin(angle);
-			if (map[round(y / WALL_SIZE)][round(x / WALL_SIZE)] != ' ') break;
-		}
-		return pow(pow((x - coord.first), 2) + pow((y - coord.second), 2), 0.5);
-	}
-
-	sf::RectangleShape distToWall(int dist, int index)
+	sf::RectangleShape distToWall(float dist, int index)
 	{
 		float wall_height;
-		if (dist < 22)
+		float alpha;
+		if (dist < MIN_DIST)
 		{
-			wall_height = WIN_HEIGHT;
+			wall_height = MAX_DIST * MIN_WALL_HEIGHT / MIN_DIST;
 		}
 		else
 		{
-			wall_height = MIN_WALL_HEIGHT * MAP_SIZE / dist;
+			wall_height = MAX_DIST * MIN_WALL_HEIGHT / dist;
 		}
+
 		sf::RectangleShape wall_object(sf::Vector2f(1, wall_height));
-		wall_object.setFillColor(sf::Color(0.14 * wall_height, 0.14 * wall_height, 0.14 * wall_height));
+		wall_object.setFillColor(sf::Color(alpha, alpha, alpha));
 		wall_object.setOrigin(0, wall_height / 2);
 		wall_object.setPosition(index, WIN_HEIGHT / 2);
 
@@ -298,7 +312,7 @@ int main()
 	maptype map = loadMap("map.txt");
 	sf::RenderWindow window_map(sf::VideoMode(MAP_SIZE, MAP_SIZE), "minimap");
 	sf::RenderWindow window_game(sf::VideoMode(WIN_WIDTH, WIN_HEIGHT), "game");
-	Camera camera(300, 300, pi);
+	Camera camera(100, 100, pi);
 	window_game.setMouseCursorGrabbed(true);
 	window_game.setMouseCursorVisible(false);
 	bool mouse_flag = true;
@@ -324,7 +338,7 @@ int main()
 				break;
 
 			case sf::Event::KeyPressed:
-				camera.key_pressed(window_game, event, mouse_flag, time);
+				camera.key_pressed(window_game, map, event, mouse_flag, time);
 				break;
 			case sf::Event::MouseMoved:
 				if (mouse_flag) camera.mouseMoved(window_game, event, time);
