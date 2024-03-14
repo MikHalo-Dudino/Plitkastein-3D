@@ -250,7 +250,7 @@ public:
 		else
 		{
 			wall_height = MAX_DIST * MIN_WALL_HEIGHT / dist;
-			alpha = 255 * MIN_DIST / dist;
+			alpha = 5600 / (dist + 13);
 		}
 
 		sf::RectangleShape wall_object(sf::Vector2f(1, wall_height));
